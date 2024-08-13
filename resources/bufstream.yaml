@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=./schema/buf.bufstream.config.v1alpha1.BufstreamConfig.schema.json
+
+## Unique name of the bufstream instance.
+## To keep the config static, the name can be set with the flag `--config.name`.
+# name: bufstream-01
+
+## Name of the bufstream cluster
+cluster: jepsen
+
+## Name of the zone/rack.
+## Will resolve the zone from the EC2 instance's metadata service. To keep the
+## config static, the zone can be overridden with the flag `--config.zone`.
+zone: rack-01
+
+## Listener for intra-cluster communication
+connect_address:
+  host: 0.0.0.0
+  port: 9093
+## Public address advertised to other Bufstream instances if different from
+## above. To keep the config file static, we can override the host to match
+## the EC2 instance's IP via the flag `--config.connect_public_address.host`.
+connect_public_address:
+  host: override.with.flags
+  port: 9093
+
+## etcd metadata storage configuration
+etcd:
+  ## Add and replace addresses below with the advertised client hosts and ports.
+  addresses:
+    - host: %ETCD_HOST%
+      port: 2379
+  ## Overrides the amount of time before an unreachable etcd node is considered
+  ## down. Defaults to 15 seconds.
+  # session_ttl_seconds: 15
+
+## data storage configuration
+storage:
+  provider: S3
+  ## Replace with the region of the configured bucket
+  # region: us-west-2
+  ## Replace with the name of the configured bucket
+  bucket: %S3_BUCKET%
+  force_path_style: true
+  endpoint: %S3_ENDPOINT%
+  ## If using an access key pair, set these:
+  access_key_id:
+    ## The key ID can be provided inline with the string
+    string: %S3_ACCESS_KEY%
+  ## Secrets can be provided inline as a string, as an environment variable,
+  ## or file path. Only one source should be set:
+  secret_access_key:
+    string: %S3_SECRET%
+    # env_var: SECRET_ACCESS_KEY
+    # path: path/to/key
+
+## Configuration for the Kafka listener
+kafka:
+  ## Address that bufstream binds to
+  address:
+    host: 0.0.0.0
+    port: 9092
+  ## Public address advertised by the Kafka protocol
+  ## Defaults to the address above. To keep the config file static, we can
+  ## override the host to match the EC2 instance's IP via the
+  ## `--config.kafka.public_address.host` flag.
+  public_address:
+    host: override.with.flags
+    port: 9092
+  ## If a fetch should return as soon as any records are available.
+  ##
+  ## When false, fetch wait for every topic/partition to be queried.
+  ## When true, fetch returns as soon as any topic/partition has records, and
+  ## the rest are fetched in the background under the assumption the client will
+  ## try to fetch them in a subsequent request.
+  ##
+  ## Dynamically configurable as `bufstream.kafka.fetch.eager`.
+  # fetch_eager: true
+  
+  ## If fetches from different readers should be synchronized to improve cache hit rates.
+  ##
+  ## Dynamically configurable as `bufstream.kafka.fetch.sync`.
+  # fetch_sync: true
+  
+  ## If records from a producer to different topic/partitions may be sequenced concurrently
+  ## instead of serially.
+  ##
+  ## Dynamically configurable as `bufstream.kafka.produce.concurrent`.
+  # produce_concurrent: true
+  
+  ## How to balance clients across zones, when a client does not specify a zone.
+  ##
+  ## Dynamically configurable as `bufstream.kafka.zone.balance.strategy`.
+  # zone_balance_strategy: BALANCE_STRATEGY_PARTITION
+  
+  ## How to balance topic/partitions across bufstream nodes.
+  ##
+  ## Dynamically configurable as `bufstream.kafka.partition.balance.strategy`.
+  # partition_balance_strategy: BALANCE_STRATEGY_PARTITION
+  
+  ## The number of kafka requests to unmarshal and buffer before processing.
+  # request_buffer_size: 5
+  
+  ## How long a Kafka connection can be idle before being closed by the server.
+  ## If set to a value less than or equal to zero, the timeout will be disabled.
+  # idle_timeout: 5m
+  
+  ## The default number of partitions to use for a new topic.
+  ##
+  ## Dynamically configurable as `num.partitions`.
+  # num_partitions: 50
+  
+  ## If exact log sizes should be fetched when listing sizes for all topics/partitions.
+  # exact_log_sizes: true
+  
+  ## The default group consumer session timeout.
+  ##
+  ## Dynamically configurable as `group.consumer.session.timeout.ms`.
+  # group_consumer_session_timeout: 45s
+
+  ## The minimum group consumer session timeout.
+  ##
+  ## Dynamically configurable as `group.consumer.min.session.timeout.ms`.
+  # group_consumer_session_timeout_min: 10s
+
+  ## The maximum group consumer session timeout.
+  ##
+  ## Dynamically configurable as `group.consumer.max.session.timeout.ms`.
+  # group_consumer_session_timeout_max: 60s
+
+## Configure observability primitives
+observability:
+  ## DEBUG|INFO|WARN|ERROR
+  log_level: INFO
+  ## TEXT|JSON
+  log_format: JSON
+  metrics_exporter: NONE
+  trace_exporter: NONE
