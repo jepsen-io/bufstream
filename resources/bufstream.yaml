@@ -120,7 +120,7 @@ kafka:
   ## The minimum group consumer session timeout.
   ##
   ## Dynamically configurable as `group.consumer.min.session.timeout.ms`.
-  # group_consumer_session_timeout_min: 10s
+  group_consumer_session_timeout_min: 5s
 
   ## The maximum group consumer session timeout.
   ##

@@ -51,6 +51,39 @@
        (mapcat #(get special-nemeses % [%]))
        set))
 
+(def logging-overrides
+  "New logging levels for various Kafka packages--otherwise this test is going
+  to be NOISY"
+  {"org.apache.kafka.clients.FetchSessionHandler"                    :warn
+   ; This complains about invalid topics during partitions, too
+   "org.apache.kafka.clients.Metadata"                               :off
+   ; This is going to give us all kinds of NOT_CONTROLLER or
+   ; UNKNOWN_SERVER_ERROR messages during partitions
+   "org.apache.kafka.clients.NetworkClient"                          :error
+   "org.apache.kafka.clients.admin.AdminClientConfig"                :warn
+   "org.apache.kafka.clients.admin.KafkaAdminClient"                 :warn
+   "org.apache.kafka.clients.admin.internals.AdminMetadataManager"   :warn
+   "org.apache.kafka.common.telemetry.internals.KafkaMetricsCollector" :warn
+   "org.apache.kafka.clients.consumer.ConsumerConfig"                :warn
+   "org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" :warn
+   ; This is also going to kvetch about unknown topic/partitions when listing
+   ; offsets
+   "org.apache.kafka.clients.consumer.internals.Fetcher"             :error
+   "org.apache.kafka.clients.consumer.internals.SubscriptionState"   :warn
+   "org.apache.kafka.clients.consumer.KafkaConsumer"                 :warn
+   "org.apache.kafka.clients.producer.KafkaProducer"                 :warn
+   ; Comment this to see the config opts for producers
+   "org.apache.kafka.clients.producer.ProducerConfig"                :warn
+   ; We're gonna get messages constantly about NOT_LEADER_OR_FOLLOWER whenever
+   ; we create a topic, and it's also going to complain when trying to send to
+   ; paused brokers that they're not available
+   "org.apache.kafka.clients.producer.internals.Sender"              :off
+   "org.apache.kafka.clients.producer.internals.TransactionManager"  :warn
+   "org.apache.kafka.common.metrics.Metrics"                         :warn
+   "org.apache.kafka.common.utils.AppInfoParser"                     :warn
+   })
+
+
 (defn bufstream-test
   "Takes CLI options and constructs a Jepsen test map"
   [opts]
@@ -103,7 +136,9 @@
                         })
             :client    (:client workload)
             :nemesis   (:nemesis nemesis nemesis/noop)
-            :generator generator})))
+            :generator generator
+            :logging   {:overrides logging-overrides}
+            })))
 
 (def cli-opts
   "Command-line option specification"
