@@ -4,6 +4,12 @@
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.11.4"]
+                 [io.jepsen/redpanda "0.1.2-SNAPSHOT"
+                  :exclusions [jepsen
+                               org.apache.kafka/kafka-clients
+                               cheshire
+                               commons-io
+                               potemkin]]
                  [jepsen.etcd "0.2.4"
                   :exclusions [jepsen]]
                  [jepsen "0.3.6-SNAPSHOT"]

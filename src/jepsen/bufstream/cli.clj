@@ -13,16 +13,18 @@
             [jepsen.bufstream [core :as core]
                               [db :as db]
                               [nemesis :as bufstream.nemesis]]
+            [jepsen.bufstream.workload [queue :as queue]]
             [jepsen.os.debian :as debian]))
 
 (def workloads
   "A map of workload names to functions that take CLI options and return
   workload maps"
-  {:none       (constantly tests/noop-test)})
+  {:none       (constantly tests/noop-test)
+   :queue      queue/workload})
 
 (def all-workloads
   "All the workloads we run by default."
-  [])
+  [:queue])
 
 (def all-nemeses
   "Combinations of nemeses we run by default."
@@ -34,13 +36,20 @@
   {:none []
    :all [:partition]})
 
+(defn parse-comma-kws
+  "Takes a comma-separated string and returns a collection of keywords."
+  [spec]
+  (->> (str/split spec #",")
+       (remove #{""})
+       (map keyword)))
+
 (defn parse-nemesis-spec
   "Takes a comma-separated nemesis string and returns a collection of keyword
   faults."
   [spec]
-  (->> (str/split spec #",")
-       (map keyword)
-       (mapcat #(get special-nemeses % [%]))))
+  (->> (parse-comma-kws spec)
+       (mapcat #(get special-nemeses % [%]))
+       set))
 
 (defn bufstream-test
   "Takes CLI options and constructs a Jepsen test map"
@@ -57,7 +66,26 @@
                          :pause {:targets [:one :majority :all]}
                          :kill {:targets [:one :majority :all]}
                          :stable-period (:nemesis-stable-period opts)
-                         :interval (:nemesis-interval opts)})]
+                         :interval (:nemesis-interval opts)})
+        ; Main workload
+        generator (gen/phases
+                    (->> (:generator workload)
+                         (gen/stagger (/ (:rate opts)))
+                         (gen/nemesis (:generator nemesis))
+                         (gen/time-limit (:time-limit opts)))
+                    ; We always run the nemesis final generator; it makes
+                    ; it easier to do ad-hoc analysis of a running cluster
+                    ; after the test
+                    (gen/nemesis (:final-generator nemesis)))
+        ; With final generator, if present
+        generator (if-let [fg (:final-generator workload)]
+                    (gen/phases
+                      generator
+                      (gen/log "Waiting for recovery")
+                      (gen/sleep 10)
+                      (gen/time-limit (:final-time-limit opts)
+                                      (gen/clients fg)))
+                    generator)]
     (merge tests/noop-test
            opts
            {:name (str (name workload-name)
@@ -75,33 +103,49 @@
                         })
             :client    (:client workload)
             :nemesis   (:nemesis nemesis nemesis/noop)
-            :generator (->> (:generator workload)
-                            (gen/stagger (/ (:rate opts)))
-                            (gen/nemesis (:generator nemesis))
-                            (gen/time-limit (:time-limit opts)))})))
+            :generator generator})))
 
 (def cli-opts
   "Command-line option specification"
-  [["-b" "--bin BINARY" "The Bufstream binary to run."
-   :default "bufstream"]
+  [[nil "--acks ACKS" "What level of acknowledgement should our producers use? Default is unset (uses client default); try 1 or 'all'."
+    :default nil]
+
+   [nil "--auto-offset-reset BEHAVIOR" "How should consumers handle it when there's no initial offset in Kafka?"
+   :default nil]
+
+   ["-b" "--bin BINARY" "The Bufstream binary to run."
+    :default "bufstream"]
+
+   [nil "--crash-clients" "If set, periodically crashes clients and forces them to set up fresh consumers/producers/etc."
+    :id :crash-clients?
+    :default false]
+
+   [nil "--crash-client-interval" "Roughly how long in seconds does a single client get to run for before crashing?"
+    :default 30
+    :parse-fn read-string
+    :validate [#(and (number? %) (pos? %)) "must be a positive number"]]
+
+   [nil "--enable-auto-commit" "If set, disables automatic commits via Kafka consumers. If not provided, uses the client default."
+    :default  nil
+    :assoc-fn (fn [m _ _] (assoc m :enable-auto-commit true))]
+
+   [nil "--disable-auto-commit" "If set, disables automatic commits via Kafka consumers. If not provided, uses the client default."
+    :assoc-fn (fn [m _ _] (assoc m :enable-auto-commit false))]
 
    [nil "--etcd-version VERSION" "What version of etcd should we install?"
     :default "3.5.15"]
 
-   [nil "--max-txn-length NUM" "Maximum number of operations in a transaction."
-    :default  4
-    :parse-fn parse-long
-    :validate [pos? "Must be a positive integer"]]
+   [nil "--final-time-limit SECONDS" "How long should we run the final generator for, at most? In seconds."
+    :default  200
+    :parse-fn read-string
+    :validate [#(and (number? %) (pos? %)) "must be a positive number"]]
+
+      [nil "--[no-]idempotence" "If true, asks producers to enable idempotence. If omitted, uses client defaults."]
 
    [nil "--max-writes-per-key NUM" "Maximum number of writes to any given key."
-    :default  32
+    :default  1024
     :parse-fn parse-long
     :validate [pos? "Must be a positive integer."]]
-
-   [nil "--min-txn-length NUM" "Minumum number of operations in a transaction."
-    :default  1
-    :parse-fn parse-long
-    :validate [pos? "Must be a positive integer"]]
 
    [nil "--nemesis FAULTS" "A comma-separated list of nemesis faults to enable"
     :parse-fn parse-nemesis-spec
@@ -126,12 +170,24 @@
     :parse-fn read-string
     :validate [pos? "Must be a positive number."]]
 
+   [nil "--retries COUNT" "Producer retries. If omitted, uses client default."
+    :parse-fn util/parse-long]
+
+   [nil "--sub-via STRATEGIES" "A comma-separated list like `assign,subscribe`, which denotes how we ask clients to assign topics to themselves."
+    :default #{:subscribe}
+    :parse-fn (comp set parse-comma-kws)
+    :validate [#(every? #{:assign :subscribe} %)
+               "Can only be assign and/or subscribe"]]
+
+   [nil "--[no-]txn" "Enables transactions for the queue workload."
+    :id :txn?]
+
    ["-v" "--version STRING" "What version of Datomic should we install?"
     :default "1.0.7075"]
 
    ["-w" "--workload NAME" "What workload should we run?"
     :parse-fn keyword
-    :default  :none
+    :default  :queue
     :missing  (str "Must specify a workload: " (cli/one-of workloads))
     :validate [workloads (cli/one-of workloads)]]
    ])
