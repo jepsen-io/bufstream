@@ -9,9 +9,16 @@
             [jepsen.redpanda.workload.queue :as rq]
             [jepsen.tests.kafka :as k]))
 
+(defn except-debug-partitions
+  [op]
+  (not= :debug-topic-partitions (:f op)))
+
 (defn workload
   "Constructs a test workload given CLI options. Options are documented in the
   Redpanda client and jepsen.tests.kafka/workload docs."
   [opts]
-  (assoc (k/workload opts)
-         :client (role/restrict-client (rq/client) :bufstream)))
+  (-> (k/workload opts)
+      (assoc :client (role/restrict-client (rq/client) :bufstream))
+      ; We don't support debugigng topic-partitions yet
+      (update :generator (partial gen/filter except-debug-partitions))
+      (update :final-generator (partial gen/filter except-debug-partitions))))
