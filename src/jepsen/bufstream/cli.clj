@@ -186,6 +186,9 @@
    [nil "--[no-]fetch-eager" "Should we enable kafka.fetch_eager in the Bufstream settings?"
     :default true]
 
+   [nil "--[no-]fetch-sync" "Should we enable kafka.fetch_sync in the Bufstream settings?"
+    :default true]
+
    [nil "--final-time-limit SECONDS" "How long should we run the final generator for, at most? In seconds."
     :default  200
     :parse-fn read-string

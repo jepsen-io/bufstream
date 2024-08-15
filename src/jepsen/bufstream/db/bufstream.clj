@@ -70,6 +70,7 @@
           (str/replace #"%S3_ACCESS_KEY%" minio/user)
           (str/replace #"%S3_SECRET%" minio/password)
           (str/replace #"%FETCH_EAGER%" (str (:fetch-eager test)))
+          (str/replace #"%FETCH_SYNC%"  (str (:fetch-sync test)))
           (cu/write-file! config-file)))))
 
 (defn post-configure!

@@ -75,11 +75,11 @@ kafka:
   ##
   ## Dynamically configurable as `bufstream.kafka.fetch.eager`.
   fetch_eager: %FETCH_EAGER%
-  
+
   ## If fetches from different readers should be synchronized to improve cache hit rates.
   ##
   ## Dynamically configurable as `bufstream.kafka.fetch.sync`.
-  # fetch_sync: true
+  fetch_sync: %FETCH_SYNC%
   
   ## If records from a producer to different topic/partitions may be sequenced concurrently
   ## instead of serially.
