@@ -83,6 +83,19 @@
    "org.apache.kafka.common.utils.AppInfoParser"                     :warn
    })
 
+(defn stats-checker
+  "A modified version of the stats checker which doesn't care if :crash or
+  :debug-topic-partitions ops always crash."
+  []
+  (let [c (checker/stats)]
+    (reify checker/Checker
+      (check [this test history opts]
+        (let [res (checker/check c test history opts)]
+          (if (every? :valid? (vals (dissoc (:by-f res)
+                                            :debug-topic-partitions
+                                            :crash)))
+            (assoc res :valid? true)
+            res))))))
 
 (defn bufstream-test
   "Takes CLI options and constructs a Jepsen test map"
@@ -130,7 +143,7 @@
             :checker  (checker/compose
                         {:perf       (checker/perf)
                         :clock      (checker/clock-plot)
-                        :stats      (checker/stats)
+                        :stats      (stats-checker)
                         :exceptions (checker/unhandled-exceptions)
                         :workload   (:checker workload)
                         })
