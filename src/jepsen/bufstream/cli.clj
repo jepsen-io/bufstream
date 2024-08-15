@@ -173,15 +173,18 @@
     :parse-fn read-string
     :validate [#(and (number? %) (pos? %)) "must be a positive number"]]
 
+   [nil "--disable-auto-commit" "If set, disables automatic commits via Kafka consumers. If not provided, uses the client default."
+    :assoc-fn (fn [m _ _] (assoc m :enable-auto-commit false))]
+
    [nil "--enable-auto-commit" "If set, disables automatic commits via Kafka consumers. If not provided, uses the client default."
     :default  nil
     :assoc-fn (fn [m _ _] (assoc m :enable-auto-commit true))]
 
-   [nil "--disable-auto-commit" "If set, disables automatic commits via Kafka consumers. If not provided, uses the client default."
-    :assoc-fn (fn [m _ _] (assoc m :enable-auto-commit false))]
-
    [nil "--etcd-version VERSION" "What version of etcd should we install?"
     :default "3.5.15"]
+
+   [nil "--[no-]fetch-eager" "Should we enable kafka.fetch_eager in the Bufstream settings?"
+    :default true]
 
    [nil "--final-time-limit SECONDS" "How long should we run the final generator for, at most? In seconds."
     :default  200
