@@ -112,7 +112,11 @@
         {:logfile log-file
          :pidfile pid-file
          :chdir dir
-         :env {"EC2_PRIVATE_IP" (cn/local-ip)}}
+         :env {"EC2_PRIVATE_IP" (cn/local-ip)
+               ; We run on big boxes and high core counts convince bufstream
+               ; that it should assume absolutely huge memory sizes. Dropping
+               ; this to 4 cores significantly improves throughput and latency.
+               "GOMAXPROCS" 4}}
         bin
         :serve
         :-c                                   config-file

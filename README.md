@@ -1,14 +1,18 @@
 # jepsen.bufstream
 
-A Clojure library designed to ... well, that part is up to you.
+Tests for the Bufstream Kafka-compatible event log.
 
 ## Usage
 
-FIXME
+```
+lein run test
+```
+
+It looks like the best performance comes from running with --no-fetch-sync. 
 
 ## License
 
-Copyright © 2024 FIXME
+Copyright © 2024 Jepsen, LLC
 
 This program and the accompanying materials are made available under the
 terms of the Eclipse Public License 2.0 which is available at
