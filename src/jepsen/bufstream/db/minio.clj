@@ -92,7 +92,8 @@
     (db/start! this test node)
     (cu/await-tcp-port console-port)
     (setup-mc!)
-    (info (mc! :admin :info mc-alias)))
+    ;(info (mc! :admin :info mc-alias))
+    )
 
   (teardown! [this test node]
     (db/kill! this test node)
