@@ -130,7 +130,7 @@ kafka:
 ## Configure observability primitives
 observability:
   ## DEBUG|INFO|WARN|ERROR
-  log_level: INFO
+  log_level: %LOG_LEVEL%
   ## TEXT|JSON
   log_format: JSON
   metrics_exporter: NONE

@@ -100,7 +100,7 @@
 (defn test-name
   "Takes CLI options and constructs a test name as a string."
   [opts]
-  (str "bufstream"
+  (str (:bin opts)
        " " (name (:workload opts))
        (when (:txn opts) " txn")
        " "
@@ -182,6 +182,9 @@
 
    ["-b" "--bin BINARY" "The Bufstream binary to run."
     :default "bufstream"]
+
+   [nil "--bufstream-log-level" "The logging level to give Bufstream"
+    :default "INFO"]
 
    [nil "--crash-clients" "If set, periodically crashes clients and forces them to set up fresh consumers/producers/etc."
     :id :crash-clients?
