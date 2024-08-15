@@ -97,6 +97,26 @@
             (assoc res :valid? true)
             res))))))
 
+(defn test-name
+  "Takes CLI options and constructs a test name as a string."
+  [opts]
+  (str "bufstream"
+       " " (name (:workload opts))
+       (when (:txn opts) " txn")
+       " "
+       (->> opts :sub-via (map name) sort (str/join ","))
+       (when-let [acks (:acks opts)] (str " acks=" acks))
+       (when-let [r (:retries opts)] (str " retries=" r))
+       (when-let [aor (:auto-offset-reset opts)]
+         (str " aor=" aor))
+       (when (contains?
+               opts :enable-server-auto-create-topics)
+         (str " auto-topics=" (:enable-server-auto-create-topics opts)))
+       (when (contains? opts :idempotence)
+         (str " idem=" (:idempotence opts)))
+       (when-let [n (:nemesis opts)]
+         (str " " (->> n (map name) sort (str/join ","))))))
+
 (defn bufstream-test
   "Takes CLI options and constructs a Jepsen test map"
   [opts]
@@ -134,8 +154,7 @@
                     generator)]
     (merge tests/noop-test
            opts
-           {:name (str (name workload-name)
-                       " " (str/join "," (map name (:nemesis opts))))
+           {:name     (test-name opts)
             :roles    (core/roles (:nodes opts))
             :os       os
             :db       db
@@ -194,7 +213,9 @@
     :parse-fn read-string
     :validate [#(and (number? %) (pos? %)) "must be a positive number"]]
 
-      [nil "--[no-]idempotence" "If true, asks producers to enable idempotence. If omitted, uses client defaults."]
+   [nil "--[no-]idempotence" "If true, asks producers to enable idempotence. If omitted, uses client defaults."]
+
+   [nil "--isolation-level NAME" "What isolation level should we request for consumers? e.g. read_committed"]
 
    [nil "--max-writes-per-key NUM" "Maximum number of writes to any given key."
     :default  1024
@@ -226,6 +247,18 @@
 
    [nil "--retries COUNT" "Producer retries. If omitted, uses client default."
     :parse-fn util/parse-long]
+
+   ["-s" "--safe" "Runs with the safest settings: --disable-auto-commit, --disable-server-auto-create-topics, --acks all, --retries 1000, --idempotence, --isolation-level read_committed --auto-offset-reset earliest, --sub-via assign. You can override individual settings by following -s with additional arguments, like so: -s --acks 0"
+    :assoc-fn (fn [m _ _]
+                (assoc m
+                       :acks "all"
+                       :auto-offset-reset "earliest"
+                       :enable-auto-commit false
+                       :enable-server-auto-create-topics false
+                       :idempotence true
+                       :isolation-level "read_committed"
+                       :retries 1000
+                       :sub-via #{:assign}))]
 
    [nil "--sub-via STRATEGIES" "A comma-separated list like `assign,subscribe`, which denotes how we ask clients to assign topics to themselves."
     :default #{:subscribe}
