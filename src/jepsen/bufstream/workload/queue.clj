@@ -19,6 +19,6 @@
   [opts]
   (-> (k/workload opts)
       (assoc :client (role/restrict-client (rq/client) :bufstream))
-      ; We don't support debugigng topic-partitions yet
+      ; We don't support debugging topic-partitions yet
       (update :generator (partial gen/filter except-debug-partitions))
       (update :final-generator (partial gen/filter except-debug-partitions))))

@@ -11,7 +11,13 @@
             [jepsen.bufstream [core :as core]]
             [jepsen.bufstream.db [minio :as minio]]
             [jepsen.control [net :as cn]
-                            [util :as cu]]))
+                            [util :as cu]]
+            [jepsen.redpanda.client :as client])
+  (:import (org.apache.kafka.clients.admin AlterConfigOp
+                                           AlterConfigOp$OpType
+                                           ConfigEntry)
+           (org.apache.kafka.common.config ConfigResource
+                                           ConfigResource$Type)))
 
 (def dir
   "The top-level bufstream dir"
@@ -65,13 +71,31 @@
           (str/replace #"%S3_SECRET%" minio/password)
           (cu/write-file! config-file)))))
 
+(defn post-configure!
+  "After starting up, we have to set a few things via an admin client."
+  [test node]
+  (let [a (client/admin test node)]
+    (.. a
+        (incrementalAlterConfigs
+          {; We have to work around a bug in Bufstream that means it ignores the
+           ; config file's settings for group consumer session timeouts.
+           ; This is possibly the most confusing API for settings I've ever seen
+           (ConfigResource. ConfigResource$Type/BROKER "")
+           [(AlterConfigOp. (ConfigEntry.
+                              "group.consumer.min.session.timeout.ms"
+                              "1000")
+                            AlterConfigOp$OpType/SET)]})
+        all
+        get)))
+
 (defrecord DB []
   db/DB
   (setup! [this test node]
     (install! test)
     (configure! test)
     (db/start! this test node)
-    (cu/await-tcp-port kafka-port))
+    (cu/await-tcp-port kafka-port)
+    (post-configure! test node))
 
   (teardown! [this test node]
     (db/kill! this test node)
