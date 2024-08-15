@@ -37,7 +37,7 @@ etcd:
 storage:
   provider: S3
   ## Replace with the region of the configured bucket
-  # region: us-west-2
+  region: us-east-1
   ## Replace with the name of the configured bucket
   bucket: %S3_BUCKET%
   force_path_style: true
