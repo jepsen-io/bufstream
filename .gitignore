@@ -13,3 +13,7 @@ pom.xml.asc
 .hg/
 /store
 *.swp
+# Binaries, saved tests, temporary copies of docs
+/bufstream
+/*.zip
+/schema
