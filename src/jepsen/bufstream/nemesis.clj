@@ -1,6 +1,7 @@
 (ns jepsen.bufstream.nemesis
   "Fault injection for Bufstream"
-  (:require [clojure.java.io :as io]
+  (:require [clojure [set :as set]]
+            [clojure.java.io :as io]
             [clojure.tools.logging :refer [info warn]]
             [cheshire.core :as json]
             [dom-top.core :refer [real-pmap]]
@@ -8,7 +9,8 @@
                     [nemesis :as n]
                     [generator :as gen]
                     [net :as net]
-                    [util :as util]]
+                    [util :as util]
+                    [role :as role]]
             [jepsen.nemesis.combined :as nc]
             [slingshot.slingshot :refer [try+ throw+]]))
 
@@ -41,10 +43,23 @@
   "Takes CLI opts. Constructs a nemesis and generator for the test."
   [opts]
   (let [opts (update opts :faults set)
-        packages (->> (nc/nemesis-packages opts)
-                      (concat [; TODO: New packages here
-                               ])
-                      (filter :generator))
+        ; There's no sense in causing partitions, corruption, or clock skew on
+        ; the single-node etcd/minio nodes; we're only interested in their
+        ; availability. We limit ourselves to just pauses and kills for those.
+        dep-opts (update opts :faults set/intersection #{:pause :kill})
+        packages
+        (->> (concat ; Standard faults, scoped only to bufstream
+                     (map (partial role/restrict-nemesis-package :bufstream)
+                          (nc/nemesis-packages opts))
+                     ; Storage faults
+                     (map (partial role/restrict-nemesis-package :storage)
+                          (nc/nemesis-packages dep-opts))
+                     ; Coordinator faults
+                     (map (partial role/restrict-nemesis-package :coordination)
+                          (nc/nemesis-packages dep-opts))
+                     ; Custom packages
+                     [])
+             (filter :generator))
         nsp (:stable-period opts)]
     (cond-> (nc/compose-packages packages)
       nsp (assoc :generator (package-gen nsp packages)))))
