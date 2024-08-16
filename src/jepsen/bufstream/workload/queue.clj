@@ -18,7 +18,7 @@
   Redpanda client and jepsen.tests.kafka/workload docs."
   [opts]
   (-> (k/workload opts)
-      (assoc :client (role/restrict-client (rq/client) :bufstream))
+      (assoc :client (role/restrict-client :bufstream (rq/client)))
       ; We don't support debugging topic-partitions yet
       (update :generator (partial gen/filter except-debug-partitions))
       (update :final-generator (partial gen/filter except-debug-partitions))))
