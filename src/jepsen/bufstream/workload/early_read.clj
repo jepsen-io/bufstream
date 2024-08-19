@@ -51,27 +51,33 @@
  [consumer]
  (loop [offsets []
         values  []]
-   (let [records         (.poll consumer (rc/ms->duration rq/poll-ms))
-         k-records       (.records records (rq/k->topic-partition k))]
-     ;(info :k-records k-records)
-     (if (seq k-records)
-       (recur
-         (into offsets  (mapv (fn [^ConsumerRecord record] (.offset record))
-                              k-records))
-         (into values   (mapv (fn [^ConsumerRecord record] (.value record))
-                              k-records)))
-       {:offsets offsets
-        :values  values}))))
+     (let [records    (.poll consumer (rc/ms->duration rq/poll-ms))
+           k-records  (.records records (rq/k->topic-partition k))
+           offsets    (into offsets  (mapv (fn [^ConsumerRecord record]
+                                             (.offset record))
+                                           k-records))
+           values     (into values   (mapv (fn [^ConsumerRecord record]
+                                             (.value record))
+                                           k-records))]
+       ; We use a random factor here so so we have a chance of *not* reading
+       ; everything.
+       (if (and (seq k-records)) ;(< (rand) 0.5))
+         (recur offsets values)
+         {:offsets offsets
+          :values  values}))))
 
 (defrecord Client [; Our three Kafka clients
                    admin
                    ^KafkaProducer producer
                    ^KafkaConsumer consumer
                    ; atom of whether topic exists
-                   topic-created?]
+                   topic-created?
+                   ; Do we intend to poll or no?
+                   poll?]
   client/Client
   (open! [this test node]
-    (let [tx-id (rc/new-transactional-id)
+    (let [tx-id    (rc/new-transactional-id)
+          poll?    (< (rand) 0.5)
           admin    (rc/admin test node)
           producer (rc/producer
                          (assoc test
@@ -80,6 +86,7 @@
                          node)
           consumer (rc/consumer test node)]
       (info "Transactional ID" tx-id)
+
       ; Create topic on first run
       (locking topic-created?
         (when-not @topic-created?
@@ -88,14 +95,18 @@
                             rq/partition-count
                             rq/replication-factor)
           (reset! topic-created? true)))
-      ; Assign ourselves the topic
-      (.assign consumer [(rq/k->topic-partition k)])
+
+      ; Assign ourselves the topic if we're going to poll
+      (when poll?
+        (.assign consumer [(rq/k->topic-partition k)]))
+
       (info "Client created")
       ; Construct ready client
       (assoc this
              :admin    admin
              :producer producer
-             :consumer consumer)))
+             :consumer consumer
+             :poll?    poll?)))
 
   (setup! [this test])
 
@@ -118,8 +129,10 @@
                         (.offset res))
           ; Sleep a short while to make it easier to catch
           ;_ (Thread/sleep (rand-int 100))
-          ; Then poll
-          polled          (poll consumer)
+          ; Then poll. We only poll sometimes; most txns just send to advance
+          ; the partition.
+          polled          (when poll?
+                            (poll consumer))
           polled-offsets  (:offsets polled)
           polled-values   (:values polled)
           ; Send offsets to txn.
@@ -160,11 +173,11 @@
   (map->Client {:topic-created? (atom false)}))
 
 (defn sent-index
-  "Takes a history and builds an index map of sent values to the completion ops
-  which wrote them."
-  [history]
+  "Takes a set of txn ok ops and builds an index map of sent values to the
+  completion ops which wrote them."
+  [ops]
   (loopr [index (transient {})]
-         [op (h/oks history)]
+         [op ops]
          (recur (assoc! index (:sent (:value op)) op))
          (persistent! index)))
 
@@ -174,15 +187,18 @@
   []
   (reify checker/Checker
     (check [this test history opts]
-      (let [sent-index (sent-index history)]
+      (let [ops        (->> history
+                            h/oks
+                            (h/filter (h/has-f? :txn)))
+            sent-index (sent-index ops)]
         ; Loop over the history, and each polled value, and try to see if the
         ; antecedent op that wrote that polled value also depended on us. Note
         ; we only looks for cycles of length 2, not anything larger--we're
         ; going to miss a lot.
         (loopr [errors  []
                 ignore  #{}] ; Ops we've already included in errors
-               [op     (h/oks history)
-                polled (:polled (:value op))]
+               [op     ops
+                polled (or (:polled (:value op)) [])]
                ; The opt that wrote the polled value we're looking at
                (if-let [writer (get sent-index polled)]
                  (let [sent (:sent (:value op))]
@@ -207,6 +223,8 @@
   [opts]
   {:generator (->> (range)
                    (map (fn [x]
-                          {:type :invoke, :f :txn, :value x})))
+                          {:type  :invoke
+                           :f     :txn
+                           :value x})))
    :client  (role/restrict-client :bufstream (client))
    :checker (checker)})
