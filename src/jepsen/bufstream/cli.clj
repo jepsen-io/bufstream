@@ -105,6 +105,11 @@
   (str (:bin opts)
        " " (name (:workload opts))
        (when (:txn opts) " txn")
+       (when-let [i (:isolation-level opts)]
+         (str " " (case i
+           "read_committed" "rc"
+           "read_uncommitted" "ru"
+           i)))
        " "
        (->> opts :sub-via (map name) sort (str/join ","))
        (when-let [acks (:acks opts)] (str " acks=" acks))
