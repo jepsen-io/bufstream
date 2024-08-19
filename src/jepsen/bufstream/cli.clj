@@ -13,13 +13,15 @@
             [jepsen.bufstream [core :as core]
                               [db :as db]
                               [nemesis :as bufstream.nemesis]]
-            [jepsen.bufstream.workload [queue :as queue]]
+            [jepsen.bufstream.workload [early-read :as early-read]
+                                       [queue :as queue]]
             [jepsen.os.debian :as debian]))
 
 (def workloads
   "A map of workload names to functions that take CLI options and return
   workload maps"
   {:none       (constantly tests/noop-test)
+   :early-read early-read/workload
    :queue      queue/workload})
 
 (def all-workloads
