@@ -190,7 +190,7 @@
    ["-b" "--bin BINARY" "The Bufstream binary to run."
     :default "bufstream"]
 
-   [nil "--bufstream-log-level" "The logging level to give Bufstream"
+   [nil "--bufstream-log-level LEVEL" "The logging level to give Bufstream"
     :default "INFO"]
 
    [nil "--crash-clients" "If set, periodically crashes clients and forces them to set up fresh consumers/producers/etc."
