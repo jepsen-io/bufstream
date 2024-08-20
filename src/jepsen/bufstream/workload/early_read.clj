@@ -131,6 +131,7 @@
           ;_ (Thread/sleep (rand-int 100))
           ; Then poll. We only poll sometimes; most txns just send to advance
           ; the partition.
+          _ (Thread/sleep (rand-int 1000))
           polled          (when poll?
                             (poll consumer))
           polled-offsets  (:offsets polled)
@@ -181,7 +182,7 @@
          (recur (assoc! index (:sent (:value op)) op))
          (persistent! index)))
 
-(defn checker
+(defn cycle-checker
   "A checker that looks for a very small early read cycle: a pair of
   transactions such that T1 observes T2's sent value, and vice versa."
   []
@@ -218,6 +219,21 @@
                 :count (count errors)
                 :errors errors})))))
 
+(defn precommitted-reads-checker
+  "Looks for cases where a single txn read its own send."
+  []
+  (reify checker/Checker
+    (check [this test history opts]
+      (loopr [errors []]
+             [op (->> history h/oks (h/filter (h/has-f? :txn)))]
+             (let [{:keys [sent polled]} (:value op)]
+               (if (some #{sent} polled)
+                 (recur (conj errors op))
+                 (recur errors)))
+             {:valid? (empty? errors)
+              :count  (count errors)
+              :errors errors}))))
+
 (defn workload
   "Takes CLI opts and constructs a workload."
   [opts]
@@ -227,4 +243,6 @@
                            :f     :txn
                            :value x})))
    :client  (role/restrict-client :bufstream (client))
-   :checker (checker)})
+   :checker (checker/compose
+              {:precommitted-reads (precommitted-reads-checker)
+               :cycle              (cycle-checker)})})
