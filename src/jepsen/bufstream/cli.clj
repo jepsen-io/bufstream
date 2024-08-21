@@ -14,15 +14,17 @@
                               [db :as db]
                               [nemesis :as bufstream.nemesis]]
             [jepsen.bufstream.workload [early-read :as early-read]
+                                       [producer-fence :as producer-fence]
                                        [queue :as queue]]
             [jepsen.os.debian :as debian]))
 
 (def workloads
   "A map of workload names to functions that take CLI options and return
   workload maps"
-  {:none       (constantly tests/noop-test)
-   :early-read early-read/workload
-   :queue      queue/workload})
+  {:none           (constantly tests/noop-test)
+   :early-read     early-read/workload
+   :producer-fence producer-fence/workload
+   :queue          queue/workload})
 
 (def all-workloads
   "All the workloads we run by default."
