@@ -28,6 +28,7 @@
                     [history :as h]
                     [util :as util]
                     [role :as role]]
+            [jepsen.checker.timeline :as timeline]
             [jepsen.generator.context :as context]
             [jepsen.redpanda.client :as rc]
             [jepsen.redpanda.workload.queue :as rq]
@@ -263,22 +264,16 @@
   ([gen next-value]
    (WithValueSeq. next-value gen)))
 
-(defrecord UntilFenced [gen]
-  gen/Generator
-  (op [this test ctx]
-    (when-let [[op gen'] (gen/op gen test ctx)]
-      [op (UntilFenced. gen')]))
-
-  (update [this test ctx event]
-    (let [gen' (gen/update gen test ctx event)]
-      (if (fenced? event)
-        (gen/limit 10 gen') ; We caught it, wind down
-        (UntilFenced. gen')))))
-
 (defn until-fenced
   "Wraps a generator, running until it hits a fenced error."
   [gen]
-  (UntilFenced. gen))
+  (gen/on-update
+    (fn [gen test ctx event]
+      (let [gen' (gen/update gen test ctx event)]
+        (if (fenced? event)
+          (gen/limit 10 gen') ; We caught it, wind down
+          (until-fenced gen'))))
+    gen))
 
 (defn txn-gen
   "Generates a single txn."
@@ -313,9 +308,66 @@
        with-value-seq
        until-fenced))
 
+(defrecord OnGivenProcessThreads [ops]
+  gen/Generator
+  (op [this test ctx]
+    (when-let [op (first ops)]
+      (let [p (:process op)
+            t (context/process->thread ctx p)]
+        (if (context/thread-free? ctx t)
+          [(gen/fill-in-op op ctx) (OnGivenProcessThreads. (next ops))]
+          [:pending this]))))
+
+  (update [this test ctx event]
+    this))
+
+(defn on-given-process-threads
+  "Takes a sequence of maps with specific :process fields--e.g. one drawn from
+  an existing history you'd like to reproduce. Emits exactly that sequence of
+  events on the threads corresponding to those processes, blocking until those
+  threads are free.
+
+  If operations complete exactly as they did in the original history, this
+  produces a history with identical :process fields. If a process crashed in
+  the original history but not in this execution, or vice versa, the processes
+  may differ, but the concurrency structure remains the same."
+  [ops]
+  (OnGivenProcessThreads. ops))
+
+(def handwritten-gen-1
+  "A very small hand-coded history we know reproduces this issue"
+  (on-given-process-threads
+    [
+     {:process 1, :f :open, :value {:transactional-id "jt-1"}}
+     {:process 1, :f :init-txns}
+     {:process 0, :f :open, :value {:transactional-id "jt-0"}}
+     {:process 1, :f :begin}
+     {:process 0, :f :init-txns}
+     {:process 1, :f :send, :value 0}
+     {:process 0, :f :begin}
+     {:process 1, :f :commit}
+     ]))
+
+(def handwritten-gen-2
+  "A very small hand-coded history we think reproduces this issue"
+  (on-given-process-threads
+    [
+     {:process 0, :f :open, :value {:transactional-id "jt-1"}}
+     {:process 0, :f :init-txns}
+     {:process 1, :f :open, :value {:transactional-id "jt-0"}}
+     {:process 1, :f :init-txns}
+     {:process 0, :f :begin}
+     {:process 0, :f :send, :value 0}
+     {:process 1, :f :begin}
+     {:process 0, :f :commit}
+     ]))
+
 (defn workload
   "Takes CLI opts and constructs a workload."
   [opts]
-  {:generator (gen)
+  {;:generator (gen)
+   :generator handwritten-gen-2
    :client  (role/restrict-client :bufstream (client))
-   :checker (checker)})
+   :checker (checker/compose
+              {:fenced   (checker)
+               :timeline (timeline/html)})})
