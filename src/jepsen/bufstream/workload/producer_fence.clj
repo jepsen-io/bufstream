@@ -18,7 +18,13 @@
       {:f :send,          :value 5}
       {:f :commit         :value nil}
 
-  To crash a process, we use {:f :crash}."
+  To crash a process, we use {:f :crash}.
+
+  This error turned out to be a misleading error message. Kafka has a
+  TimeoutException, but when the coordinator times out a transaction, it throws
+  ProducerFencedException instead, and lies to you that a newer producer must
+  exist. I'm leaving this here since it might be a useful starting point for
+  other kinds of exploratory workloads."
   (:require [clojure [pprint :refer [pprint]]]
             [clojure.tools.logging :refer [info warn]]
             [dom-top.core :refer [loopr]]
@@ -350,17 +356,16 @@
 
 (def handwritten-gen-2
   "A very small hand-coded history we think reproduces this issue"
-  (on-given-process-threads
-    [
-     {:process 0, :f :open, :value {:transactional-id "jt-1"}}
-     {:process 0, :f :init-txns}
-     {:process 1, :f :open, :value {:transactional-id "jt-0"}}
-     {:process 1, :f :init-txns}
-     {:process 0, :f :begin}
-     {:process 0, :f :send, :value 0}
-     {:process 1, :f :begin}
-     {:process 0, :f :commit}
-     ]))
+  [
+   {:process 0, :f :open, :value {:transactional-id "jt-1"}}
+   {:process 0, :f :init-txns}
+   {:process 0, :f :begin}
+   {:process 0, :f :send, :value 0}
+   (gen/log "sleeping")
+   (gen/once (gen/sleep 2))
+   (gen/log "awake")
+   {:process 0, :f :commit}
+   ])
 
 (defn workload
   "Takes CLI opts and constructs a workload."
