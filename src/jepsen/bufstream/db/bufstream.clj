@@ -91,9 +91,10 @@
         all
         get)))
 
-(defrecord DB []
+(defrecord DB [tcpdump]
   db/DB
   (setup! [this test node]
+    (when (:tcpdump test) (db/setup! tcpdump test node))
     (install! test)
     (configure! test)
     (db/start! this test node)
@@ -102,9 +103,8 @@
 
   (teardown! [this test node]
     (db/kill! this test node)
-    (c/su
-      (c/exec :rm :-rf dir)
-      ))
+    (c/su (c/exec :rm :-rf dir))
+    (when (:tcpdump test) (db/teardown! tcpdump test node)))
 
   db/Kill
   (start! [_ test node]
@@ -132,7 +132,11 @@
 
   db/LogFiles
   (log-files [_ test node]
-    {log-file "bufstream.log"
-     config-file "bufstream.yaml"}))
+    (merge (db/log-files tcpdump test node)
+           {log-file "bufstream.log"
+            config-file "bufstream.yaml"})))
 
-(def db ->DB)
+(defn db
+  "Constructs a fresh DB."
+  []
+  (DB. (db/tcpdump {:ports [kafka-port]})))
