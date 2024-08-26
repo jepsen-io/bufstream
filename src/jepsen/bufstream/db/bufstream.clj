@@ -4,6 +4,7 @@
                      [string :as str]]
             [clojure.java.io :as io]
             [clojure.tools.logging :refer [info warn]]
+            [dom-top.core :refer [with-retry]]
             [jepsen [db :as db]
                     [control :as c]
                     [role :as role]
@@ -42,6 +43,10 @@
 (def kafka-port
   "The port for the Kafka interface."
   9092)
+
+(def watchdog-interval
+  "How often (ms) do we check to restart the bufstream process when it crashes"
+  1000)
 
 (defn install!
   "Uploads the minio binary and creates relevant directories."
@@ -91,7 +96,49 @@
         all
         get)))
 
-(defrecord DB [tcpdump]
+(defn start!
+  "Starts bufstream. Does not spawn a watchdog."
+  [node]
+  (c/su
+    (cu/start-daemon!
+      {:logfile log-file
+       :pidfile pid-file
+       :chdir dir
+       :env {"EC2_PRIVATE_IP" (cn/local-ip)
+             ; We run on big boxes and high core counts convince bufstream
+             ; that it should assume absolutely huge memory sizes. Dropping
+             ; this to 4 cores significantly improves throughput and latency.
+             "GOMAXPROCS" 4}}
+      bin
+      :serve
+      :-c                                   config-file
+      :--config.name                        node
+      :--config.kafka.public_address.host   (cn/local-ip)
+      :--config.connect_public_address.host (cn/local-ip)
+      )))
+
+(defn start-watchdog
+  "Bufstream likes to kill itself when it can't talk to its dependencies; it
+  expects that someone else will come along and rescue it. This spawns a thread
+  which periodically checks to see if the daemon is running, and if not,
+  restarts it. Returns a future which can be terminated with future-cancel."
+  [node]
+  (future
+    (util/with-thread-name (str "bufstream watchdog " node)
+      (c/on-nodes test [node]
+                  (fn watch [_ _]
+                    (with-retry []
+                      (Thread/sleep watchdog-interval)
+                      ;(info :watchdog (start! node))
+                      (retry)
+                      (catch InterruptedException e
+                        ; We want to exit here)
+                        :interrupted)
+                      (catch Throwable t
+                        (warn t "Unexpected exception in watchdog")
+                        (throw t))))))))
+
+(defrecord DB [tcpdump watchdog]
   db/DB
   (setup! [this test node]
     (when (:tcpdump test) (db/setup! tcpdump test node))
@@ -108,25 +155,12 @@
 
   db/Kill
   (start! [_ test node]
-    (c/su
-      (cu/start-daemon!
-        {:logfile log-file
-         :pidfile pid-file
-         :chdir dir
-         :env {"EC2_PRIVATE_IP" (cn/local-ip)
-               ; We run on big boxes and high core counts convince bufstream
-               ; that it should assume absolutely huge memory sizes. Dropping
-               ; this to 4 cores significantly improves throughput and latency.
-               "GOMAXPROCS" 4}}
-        bin
-        :serve
-        :-c                                   config-file
-        :--config.name                        node
-        :--config.kafka.public_address.host   (cn/local-ip)
-        :--config.connect_public_address.host (cn/local-ip)
-        )))
+    (let [s (start! node)]
+      (reset! watchdog (start-watchdog node))
+      s))
 
   (kill! [_ test node]
+    (future-cancel @watchdog)
     (c/su
       (cu/stop-daemon! bin pid-file)))
 
@@ -139,4 +173,5 @@
 (defn db
   "Constructs a fresh DB."
   []
-  (DB. (db/tcpdump {:ports [kafka-port]})))
+  (DB. (db/tcpdump {:ports [kafka-port]})
+       (atom (future))))
