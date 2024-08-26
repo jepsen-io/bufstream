@@ -15,6 +15,7 @@
                               [nemesis :as bufstream.nemesis]]
             [jepsen.bufstream.workload [early-read :as early-read]
                                        [producer-fence :as producer-fence]
+                                       [producer-perf :as producer-perf]
                                        [queue :as queue]]
             [jepsen.os.debian :as debian]))
 
@@ -24,6 +25,7 @@
   {:none           (constantly tests/noop-test)
    :early-read     early-read/workload
    :producer-fence producer-fence/workload
+   :producer-perf  producer-perf/workload
    :queue          queue/workload})
 
 (def all-workloads

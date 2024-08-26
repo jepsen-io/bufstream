@@ -25,17 +25,31 @@
   ; We want a sequence of random subsets of packages
   (repeatedly
     (fn rand-pkgs []
-      ; Pick a random selection of packages
-      (let [pkgs (vec (take (rand-int (inc (count packages)))
-                            (shuffle packages)))
+      (let [; Start by picking the roles that we'll affect
+            roles (set (util/random-nonempty-subset [:coordination
+                                                     :storage
+                                                     :bufstream]))
+            ; Roughly 1/4 of the time, pick no roles
+            roles (if (< (rand) 1/4)
+                    #{}
+                    roles)
+            pkgs (->> packages
+                      ; Just those with generators
+                      (keep :generator)
+                      ; And belonging to one of our roles
+                      (filter (comp roles :role))
+                      ; And pick a random subset of those
+                      util/random-nonempty-subset
+                      vec)
             ; Construct combined generators
             gen       (if (seq pkgs)
-                        (apply gen/any (keep :generator pkgs))
+                        (apply gen/any (map :generator pkgs))
                         (gen/sleep period))
             final-gen (keep :final-generator pkgs)]
         ; Ops from the combined generator, followed by a final gen
-        [(gen/log (str "Shifting to new mix of nemeses: "
-                       (pr-str (map :nemesis pkgs))))
+        [(gen/log (str "Shifting to new mix of roles " (pr-str roles)
+                       " and " (count pkgs) " nemeses:
+                       " (pr-str (map :nemesis pkgs))))
          (gen/time-limit period gen)
          final-gen]))))
 
@@ -43,10 +57,16 @@
   "Takes CLI opts. Constructs a nemesis and generator for the test."
   [opts]
   (let [opts (update opts :faults set)
-        ; There's no sense in causing partitions, corruption, or clock skew on
-        ; the single-node etcd/minio nodes; we're only interested in their
-        ; availability. We limit ourselves to just pauses and kills for those.
-        dep-opts (update opts :faults set/intersection #{:pause :kill})
+        dep-opts (-> opts
+                     ; There's no sense in causing partitions, corruption, or
+                     ; clock skew on the single-node etcd/minio nodes; we're
+                     ; only interested in their availability. We limit
+                     ; ourselves to just pauses and kills for those.
+                     (update :faults set/intersection #{:pause :kill})
+                     ; Likewise, there's no sense in targeting anything other
+                     ; than all nodes, since these are single-node subsystems
+                     (assoc-in [:pause :targets] [:all])
+                     (assoc-in [:kill :targets] [:all]))
         packages
         (->> (concat ; Standard faults, scoped only to bufstream
                      (map (partial role/restrict-nemesis-package :bufstream)
