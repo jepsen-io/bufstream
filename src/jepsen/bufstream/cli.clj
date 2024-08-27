@@ -32,6 +32,25 @@
   "All the workloads we run by default."
   [:queue])
 
+(def nemeses
+  "Basic nemeses we have available."
+  #{
+    :kill
+    :kill-bufstream
+    :kill-storage
+    :kill-coordination
+    :pause
+    :pause-bufstream
+    :pause-storage
+    :pause-coordination
+    :partition
+    :partition-bufstream
+    :clock
+    :clock-bufstream
+    :clock-storage
+    :clock-coordination
+    })
+
 (def all-nemeses
   "Combinations of nemeses we run by default."
   [[]
@@ -40,7 +59,7 @@
 (def special-nemeses
   "A map of special nemesis names to collections of faults."
   {:none []
-   :all [:partition]})
+   :all [:partition :pause :kill]})
 
 (defn parse-comma-kws
   "Takes a comma-separated string and returns a collection of keywords."
@@ -238,11 +257,8 @@
 
    [nil "--nemesis FAULTS" "A comma-separated list of nemesis faults to enable"
     :parse-fn parse-nemesis-spec
-    :validate [(partial every? #{:pause
-                                 :kill
-                                 :partition
-                                 :clock})
-               "Faults must be pause, kill, partition, partition-storage, clock, or the special faults all or none."]]
+    :validate [(partial every? (into nemeses (keys special-nemeses)))
+               (str (cli/one-of nemeses) " or the special nemeses, which " (cli/one-of special-nemeses))]]
 
    [nil "--nemesis-interval SECS" "Roughly how long between nemesis operations."
     :default  10

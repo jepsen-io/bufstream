@@ -8,7 +8,7 @@
   (let [h (h/history
             [{:process 1, :type :ok, :f :txn, :value {:sent 1, :polled [2]}}
              {:process 2, :type :ok, :f :txn, :value {:sent 2, :polled [1]}}])
-        r (checker/check (e/checker) {} h {})]
+        r (checker/check (e/cycle-checker) {} h {})]
     (is (= r {:valid? false
               :count 1
               :errors [[(nth h 0)
