@@ -15,7 +15,7 @@
                  [jepsen "0.3.6-SNAPSHOT"]
                  [org.apache.kafka/kafka-clients "3.8.0"
                   :exclusions [org.slf4j/slf4j-api]]]
-  :repl-options {:init-ns jepsen.bufstream}
+  :repl-options {:init-ns jepsen.bufstream.cli}
   :main jepsen.bufstream.cli
   :jvm-opts ["-server"
              ;"-XX:-OmitStackTraceInFastThrow"
