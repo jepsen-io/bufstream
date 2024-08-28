@@ -14,6 +14,43 @@
             [jepsen.nemesis.combined :as nc]
             [slingshot.slingshot :refer [try+ throw+]]))
 
+(defn dep-part-package
+  "A nemesis package for partitions between bufstream and dependencies.
+  Supports two faults: :partition-bufstream-coordination, and
+  :partition-bufstream-storage. Asking for a general :partition fault activates
+  both."
+  [{:keys [faults db] :as opts}]
+  (let [needed? (or (:partition faults)
+                    (:partition-bufstream-coordination faults)
+                    (:partition-bufstream-storage faults))
+        stop {:type :info, :f :stop-partition}
+        ; Constructs a generator for start-partition operations, partitioning
+        ; bufstream from the given role.
+        start (fn [role]
+                 (fn gen [test ctx]
+                   {:type :info
+                    :f    :start-partition
+                    :value (n/complete-grudge
+                             [(role/nodes test role)
+                              (role/nodes test :bufstream)])}))
+        gen (->> [(gen/repeat stop)
+                  (when (:partition-bufstream-coordination faults)
+                    (start :coordination))
+                  (when (:partition-bufstream-storage faults)
+                    (start :storage))]
+                 gen/mix
+                 (gen/stagger (:interval opts nc/default-interval)))]
+    {:generator       (when needed? gen)
+     :final-generator (when needed? stop)
+     :nemesis         (nc/partition-nemesis db)
+     :perf            #{{:name  "partition"
+                         :start #{:start-partition}
+                         :stop  #{:stop-partition}
+                         :color "#E9DCA0"}}
+     ; We assume, in package-gen-helper, that every package has a role. Let's
+     ; just call this bufstream.
+     :role            :bufstream}))
+
 (defn package-gen-helper
   "Helper for package-gen. Takes a collection of packages and draws a random
   nonempty subset of them."
@@ -123,7 +160,7 @@
                     nc/nemesis-packages
                     (map (partial role/restrict-nemesis-package :coordination)))
                ; Custom packages
-               [])
+               [(dep-part-package opts)])
              (filter :generator))
 
         nsp (:stable-period opts)]
