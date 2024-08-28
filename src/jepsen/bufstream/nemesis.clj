@@ -57,21 +57,22 @@
   "Helper for package-gen. Takes a collection of packages and draws a random
   nonempty subset of them."
   [packages]
-  (let [; Start by picking the roles that we'll affect
-        roles (set (util/random-nonempty-subset [:coordination
-                                                 :storage
-                                                 :bufstream]))
-        pkgs (->> packages
-                  ; Just those belonging to one of our roles
-                  (filter (comp roles :role))
-                  ; And pick a random subset of those
-                  util/random-nonempty-subset
-                  vec)]
-    ; If we drew nothing, try again.
-    (if (seq pkgs)
-      pkgs
-      (do ; (info "no draw, retrying")
-          (recur packages)))))
+  (when (seq packages)
+    (let [; Start by picking the roles that we'll affect
+          roles (set (util/random-nonempty-subset [:coordination
+                                                   :storage
+                                                   :bufstream]))
+          pkgs (->> packages
+                    ; Just those belonging to one of our roles
+                    (filter (comp roles :role))
+                    ; And pick a random subset of those
+                    util/random-nonempty-subset
+                    vec)]
+      ; If we drew nothing, try again.
+      (if (seq pkgs)
+        pkgs
+        (do ; (info "no draw, retrying")
+            (recur packages))))))
 
 (defn package-gen
   "For long-running tests, it's nice to be able to have periods of no faults,
