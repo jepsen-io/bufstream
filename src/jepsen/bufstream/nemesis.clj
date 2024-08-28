@@ -34,9 +34,11 @@
                              [(role/nodes test role)
                               (role/nodes test :bufstream)])}))
         gen (->> [(gen/repeat stop)
-                  (when (:partition-bufstream-coordination faults)
+                  (when (or (:partition faults)
+                            (:partition-bufstream-coordination faults))
                     (start :coordination))
-                  (when (:partition-bufstream-storage faults)
+                  (when (or (:partition faults)
+                            (:partition-bufstream-storage faults))
                     (start :storage))]
                  gen/mix
                  (gen/stagger (:interval opts nc/default-interval)))]

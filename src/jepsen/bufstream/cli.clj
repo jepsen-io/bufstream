@@ -56,7 +56,11 @@
 (def all-nemeses
   "Combinations of nemeses we run by default."
   [[]
-   [:partition]])
+   [:partition]
+   [:kill]
+   [:pause]
+   [:clock]
+   [:partition :pause :kill :clock]])
 
 (def special-nemeses
   "A map of special nemesis names to collections of faults."
@@ -293,7 +297,12 @@
                        :sub-via #{:assign}))]
 
    [nil "--sub-p PROBABILITY" "Probability any given op is an assign/subscribe operation."
-    :default 1/8
+    ; For completely inexplicable reasons, more frequent calls to assign or
+    ; subscribe (e.g. if this is 1/32 or 1/8) can cause producers (yes,
+    ; producers! not consumers!) to time out consistently for some period, then
+    ; go back to being normal. If you're seeing periods on the graph where
+    ; performance just TANKS for no reason, try adjusting this smaller.
+    :default 1/64
     :parse-fn read-string
     :validate [#(< 0 % 1) "Must be between 0 and 1"]]
 
