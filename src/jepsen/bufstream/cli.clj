@@ -173,7 +173,13 @@
         generator (gen/phases
                     (->> (:generator workload)
                          (gen/stagger (/ (:rate opts)))
-                         (gen/nemesis (:generator nemesis))
+                         (gen/nemesis
+                           (gen/phases
+                             ; Causing faults early in the test seems to render
+                             ; the cluster permanently unusable; we'll give it
+                             ; a bit to run.
+                             (gen/sleep 5)
+                             (:generator nemesis)))
                          (gen/time-limit (:time-limit opts)))
                     ; We always run the nemesis final generator; it makes
                     ; it easier to do ad-hoc analysis of a running cluster
