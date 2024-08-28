@@ -119,6 +119,13 @@
     (c/su
       (cu/stop-daemon! bin pid-file)))
 
+  db/Pause
+  (pause! [_ test node]
+    (c/su (cu/grepkill! :stop "minio")))
+
+  (resume! [_ test node]
+    (c/su (cu/grepkill! :cont "minio")))
+
   db/LogFiles
   (log-files [_ test node]
     {log-file "minio.log"}))

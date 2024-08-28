@@ -164,6 +164,13 @@
     (c/su
       (cu/stop-daemon! bin pid-file)))
 
+  db/Pause
+  (pause! [_ test node]
+    (c/su (cu/grepkill! :stop "bufstream")))
+
+  (resume! [_ test node]
+    (c/su (cu/grepkill! :cont "bufstream")))
+
   db/LogFiles
   (log-files [_ test node]
     (merge (db/log-files tcpdump test node)
