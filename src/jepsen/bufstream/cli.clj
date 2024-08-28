@@ -133,7 +133,7 @@
   [opts]
   (str (:bin opts)
        " " (name (:workload opts))
-       (when (:txn opts) " txn")
+       (when (:txn? opts) " txn")
        (when-let [i (:isolation-level opts)]
          (str " " (case i
            "read_committed" "rc"
@@ -278,7 +278,7 @@
     :validate [pos? "Must be a positive number."]]
 
    [nil "--nemesis-stable-period SECS" "If given, rotates the mixture of nemesis faults over time with roughly this period."
-    :default nil
+    :default 30
     :parse-fn parse-long
     :validate [pos? "Must be a positive number."]]
 
@@ -337,13 +337,16 @@
   "Turns CLI options into a sequence of tests."
   [opts]
   (let [nemeses   (if-let [n (:nemesis opts)]  [n] all-nemeses)
-        workloads (if-let [w (:workload opts)] [w] all-workloads)]
-    (for [n     nemeses
+        workloads (if-let [w (:workload opts)] [w] all-workloads)
+        txns      (if-let [t (:txn? opts)]     [t] [false true])]
+    (for [i     (range (:test-count opts))
+          n     nemeses
           w     workloads
-          i     (range (:test-count opts))]
+          t     txns]
       (bufstream-test (assoc opts
-                           :nemesis n
-                           :workload w)))))
+                             :txn?     t
+                             :nemesis  n
+                             :workload w)))))
 
 (defn -main
   "Handles command line arguments. Can either run a test, or a web server for
