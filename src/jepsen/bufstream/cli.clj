@@ -325,12 +325,10 @@
         workloads (if-let [w (:workload opts)] [w] all-workloads)]
     (for [n     nemeses
           w     workloads
-          sync  [true false]
           i     (range (:test-count opts))]
       (bufstream-test (assoc opts
                            :nemesis n
-                           :workload w
-                           :sync sync)))))
+                           :workload w)))))
 
 (defn -main
   "Handles command line arguments. Can either run a test, or a web server for
