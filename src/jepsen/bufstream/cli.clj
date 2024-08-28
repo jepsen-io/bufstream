@@ -45,6 +45,8 @@
     :pause-coordination
     :partition
     :partition-bufstream
+    :partition-bufstream-coordination
+    :partition-bufstream-storage
     :clock
     :clock-bufstream
     :clock-storage
@@ -271,7 +273,7 @@
     :validate [pos? "Must be a positive number."]]
 
    ["-r" "--rate HZ" "Approximate request rate, in hz"
-    :default 100
+    :default 10000
     :parse-fn read-string
     :validate [pos? "Must be a positive number."]]
 
@@ -289,6 +291,11 @@
                        :isolation-level "read_committed"
                        :retries 1000
                        :sub-via #{:assign}))]
+
+   [nil "--sub-p PROBABILITY" "Probability any given op is an assign/subscribe operation."
+    :default 1/8
+    :parse-fn read-string
+    :validate [#(< 0 % 1) "Must be between 0 and 1"]]
 
    [nil "--sub-via STRATEGIES" "A comma-separated list like `assign,subscribe`, which denotes how we ask clients to assign topics to themselves."
     :default #{:subscribe}
