@@ -35,8 +35,8 @@
   (kill!  [_ test node] (db/kill! db test node))
 
   db/Pause
-  (start! [_ test node] (db/start! db test node))
-  (kill!  [_ test node] (db/kill! db test node)))
+  (resume! [_ test node] (db/resume! db test node))
+  (pause!  [_ test node] (db/pause! db test node)))
 
 (defn db
   "Constructs a Jepsen DB for setting up and tearing down a Bufstream cluster."
