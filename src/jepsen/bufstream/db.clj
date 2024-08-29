@@ -12,6 +12,32 @@
             [jepsen.control.util :as cu]
             [jepsen.etcd.db :as etcd]))
 
+; A wrapper for the role-based DB. In particular, that DB supports primaries,
+; which we don't actually care about here. Why bother disabling primaries?
+; Because in rare situations the etcd DB's primaries implementation does
+; network IO, and if it runs out of filehandles it can blow up the generator.
+;
+; The "right" thing to do here is to find the filehandle leak (if one exists?)
+; and fix it, or add more robust recovery code to the primaries implementation,
+; but hitting this took several hours, we don't actually want to ask for
+; primaries *anyway*, a review of the code doesn't show any obvious leaks, and
+; I'm on the clock here.
+(defrecord DB [db]
+  db/DB
+  (setup!    [_ test node] (db/setup! db test node))
+  (teardown! [_ test node] (db/teardown! db test node))
+
+  db/LogFiles
+  (log-files [_ test node] (db/log-files db test node))
+
+  db/Kill
+  (start! [_ test node] (db/start! db test node))
+  (kill!  [_ test node] (db/kill! db test node))
+
+  db/Pause
+  (start! [_ test node] (db/start! db test node))
+  (kill!  [_ test node] (db/kill! db test node)))
+
 (defn db
   "Constructs a Jepsen DB for setting up and tearing down a Bufstream cluster."
   []
@@ -29,7 +55,8 @@
                                  ; we ignore
                                  :members (atom (into (sorted-set) (:nodes test)))})
                        (merge test @etcd-test))]
-    (role/db
-      {:bufstream    (db.bufstream/db)
-       :storage      (db.minio/db)
-       :coordination (db/map-test etcd-test-fn (etcd/db {}))})))
+    (DB.
+      (role/db
+        {:bufstream    (db.bufstream/db)
+         :storage      (db.minio/db)
+         :coordination (db/map-test etcd-test-fn (etcd/db {}))}))))
