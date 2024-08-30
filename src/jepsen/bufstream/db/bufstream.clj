@@ -10,10 +10,12 @@
                     [role :as role]
                     [util :as util]]
             [jepsen.bufstream [core :as core]]
-            [jepsen.bufstream.db [minio :as minio]]
+            [jepsen.bufstream.db [minio :as minio]
+                                 [watchdog :as watchdog]]
             [jepsen.control [net :as cn]
                             [util :as cu]]
-            [jepsen.redpanda.client :as client])
+            [jepsen.redpanda.client :as client]
+            [slingshot.slingshot :refer [try+ throw+]])
   (:import (org.apache.kafka.clients.admin AlterConfigOp
                                            AlterConfigOp$OpType
                                            ConfigEntry)
@@ -97,7 +99,7 @@
         get)))
 
 (defn start!
-  "Starts bufstream. Does not spawn a watchdog."
+  "Starts bufstream."
   [node]
   (c/su
     (cu/start-daemon!
@@ -117,28 +119,15 @@
       :--config.connect_public_address.host (cn/local-ip)
       )))
 
-(defn start-watchdog
-  "Bufstream likes to kill itself when it can't talk to its dependencies; it
-  expects that someone else will come along and rescue it. This spawns a thread
-  which periodically checks to see if the daemon is running, and if not,
-  restarts it. Returns a future which can be terminated with future-cancel."
-  [node]
-  (future
-    (util/with-thread-name (str "bufstream watchdog " node)
-      (c/on-nodes test [node]
-                  (fn watch [_ _]
-                    (with-retry []
-                      (Thread/sleep watchdog-interval)
-                      ;(info :watchdog (start! node))
-                      (retry)
-                      (catch InterruptedException e
-                        ; We want to exit here)
-                        :interrupted)
-                      (catch Throwable t
-                        (warn t "Unexpected exception in watchdog")
-                        (throw t))))))))
+(defn running?
+  "Is bufstream running?"
+  [test node]
+  (try+ (c/su (c/exec :pgrep :bufstream))
+        true
+        (catch [:type :jepsen.control/nonzero-exit] _
+          false)))
 
-(defrecord DB [tcpdump watchdog]
+(defrecord DB [tcpdump]
   db/DB
   (setup! [this test node]
     (when (:tcpdump test) (db/setup! tcpdump test node))
@@ -155,14 +144,13 @@
 
   db/Kill
   (start! [_ test node]
-    (let [s (start! node)]
-      (reset! watchdog (start-watchdog node))
-      s))
+    (start! node))
 
   (kill! [_ test node]
-    (future-cancel @watchdog)
     (c/su
-      (cu/stop-daemon! bin pid-file)))
+      (cu/stop-daemon! bin pid-file)
+      ; Just in case
+      (cu/grepkill! :kill "bufstream")))
 
   db/Pause
   (pause! [_ test node]
@@ -180,5 +168,5 @@
 (defn db
   "Constructs a fresh DB."
   []
-  (DB. (db/tcpdump {:ports [kafka-port]})
-       (atom (future))))
+  (->> (DB. (db/tcpdump {:ports [kafka-port]}))
+       (watchdog/db {:running? running?})))
