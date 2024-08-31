@@ -8,7 +8,23 @@ Tests for the Bufstream Kafka-compatible event log.
 lein run test-all --bin bufstream-0.1.3-rc2 --concurrency 3n --time-limit 1000 --test-count 10 --safe
 ```
 
-It looks like the best performance comes from running with --no-fetch-sync. 
+It looks like the best performance comes from running with `--no-fetch-sync`.
+
+## What's Here
+
+See `src/jepsen/bufstream/` for the test harness code. In there, you'll find:
+
+- `cli.clj`: Main entry point. Parses CLI options, constructs and runs tests.
+- `core.clj`: Common functions shared across the rest of the test.
+- `db.clj`: DB automation. Stitches together bufstream, minio, etcd, tcpdump, and a watchdog into a Jepsen DB object.
+- `db/bufstream.clj`: Runs Bufstream nodes
+- `db/minio.clj`: Runs minio, our storage system
+- `db/watchdog.clj`: Responsible for restarting bufstream when it crashes.
+- `nemesis.clj`: Schedules and injects faults
+- `workload/early_read.clj`: A (not very interesting) search for a specific G1c cycle.
+- `workload/producer_fence.clj`: Demonstrates that producers throw a fenced exception on timeout
+- `workload/producer_perf.clj`: Producer performance test--a WIP testbed for exploring some performance issues we've had in testing.
+- `workload/queue.clj`: The main and most useful test. Verifies transactional and non-transactional sends, polls, and assigns.
 
 ## REPL
 
