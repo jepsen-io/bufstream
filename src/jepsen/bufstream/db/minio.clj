@@ -128,8 +128,13 @@
 
   db/LogFiles
   (log-files [_ test node]
-    (meh (c/su (c/cd dir (c/exec :tar :cjf "data.tar.bz2" data-dir))))
-    {log-file                  "minio.log"
-     (str dir "/data.tar.bz2") "data.tar.bz2"}))
+    ; (meh (c/su (c/cd dir (c/exec :tar :cjf "data.tar.bz2" data-dir))))
+    (meh (c/su (c/cd dir
+                     (mc! :cp :--recursive (str mc-alias "/" bucket)
+                          bucket)
+                     (c/exec :tar :cjf "bucket.tar.bz2" bucket))))
+    {log-file                     "minio.log"
+     (str dir "/data.tar.bz2") "data.tar.bz2"
+     (str dir "/bucket.tar.bz2") "bucket.tar.bz2"}))
 
 (def db ->DB)
