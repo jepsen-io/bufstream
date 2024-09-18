@@ -135,3 +135,5 @@ observability:
   log_format: JSON
   metrics_exporter: NONE
   trace_exporter: NONE
+
+%ARCHIVE%

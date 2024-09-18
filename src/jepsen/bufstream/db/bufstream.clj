@@ -79,6 +79,10 @@
           (str/replace #"%FETCH_EAGER%" (str (:fetch-eager test)))
           (str/replace #"%FETCH_SYNC%"  (str (:fetch-sync test)))
           (str/replace #"%LOG_LEVEL%"    (:bufstream-log-level test))
+          (str/replace #"%ARCHIVE%"
+                       (if (:no-archive test)
+                         "archive:\n  min_bytes: -1\n"
+                         ""))
           (cu/write-file! config-file)))))
 
 (defn post-configure!

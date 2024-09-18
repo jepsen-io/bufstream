@@ -220,6 +220,8 @@
   [[nil "--acks ACKS" "What level of acknowledgement should our producers use? Default is unset (uses client default); try 1 or 'all'."
     :default nil]
 
+   [nil "--no-archive" "Disables bufstream archiving; helpful for debugging purposes."]
+
    [nil "--auto-offset-reset BEHAVIOR" "How should consumers handle it when there's no initial offset in Kafka?"
    :default nil]
 
