@@ -6,7 +6,7 @@
             [jepsen [db :as db]
                     [control :as c]
                     [role :as role]
-                    [util :as util]]
+                    [util :as util :refer [meh]]]
             [jepsen.bufstream [core :as core]]
             [jepsen.control.util :as cu]))
 
@@ -128,6 +128,8 @@
 
   db/LogFiles
   (log-files [_ test node]
-    {log-file "minio.log"}))
+    (meh (c/su (c/cd dir (c/exec :tar :cjf "data.tar.bz2" data-dir))))
+    {log-file                  "minio.log"
+     (str dir "/data.tar.bz2") "data.tar.bz2"}))
 
 (def db ->DB)
