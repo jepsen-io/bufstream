@@ -97,6 +97,7 @@
    "org.apache.kafka.common.telemetry.internals.KafkaMetricsCollector" :warn
    "org.apache.kafka.clients.consumer.ConsumerConfig"                :warn
    "org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" :warn
+   "org.apache.kafka.clients.consumer.internals.ConsumerUtils"       :warn
    ; This is also going to kvetch about unknown topic/partitions when listing
    ; offsets
    "org.apache.kafka.clients.consumer.internals.Fetcher"             :error
