@@ -98,6 +98,7 @@
    "org.apache.kafka.clients.consumer.ConsumerConfig"                :warn
    "org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" :warn
    "org.apache.kafka.clients.consumer.internals.ConsumerUtils"       :warn
+   "org.apache.kafka.clients.consumer.internals.LegacyKafkaConsumer" :warn
    ; This is also going to kvetch about unknown topic/partitions when listing
    ; offsets
    "org.apache.kafka.clients.consumer.internals.Fetcher"             :error
@@ -217,7 +218,12 @@
 
 (def cli-opts
   "Command-line option specification"
-  [[nil "--acks ACKS" "What level of acknowledgement should our producers use? Default is unset (uses client default); try 1 or 'all'."
+  [[nil "--abort-p PROBABILITY" "Probability of aborting a transaction at any given step."
+    :default 0.1
+    :parse-fn read-string
+    :validate [#(<= 0 % 1) "must be between 0 and 1, inclusive"]]
+
+   [nil "--acks ACKS" "What level of acknowledgement should our producers use? Default is unset (uses client default); try 1 or 'all'."
     :default nil]
 
    [nil "--no-archive" "Disables bufstream archiving; helpful for debugging purposes."]
