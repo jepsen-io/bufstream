@@ -4,8 +4,10 @@ Tests for the Bufstream Kafka-compatible event log.
 
 ## Usage
 
+You'll need a copy of the `bufstream` binary on this machine, specified using `--bin FILE`.
+
 ```
-lein run test-all --bin bufstream-0.1.3-rc2 --concurrency 3n --time-limit 1000 --test-count 10 --safe
+lein run test-all --username admin --nodes-file ~/nodes --bin bufstream-0.1.3-rc6 --concurrency 3n --time-limit 300 --test-count 30 --safe --sub-via subscribe --no-fetch-sync --ignore-queue-errors unseen
 ```
 
 It looks like the best performance comes from running with `--no-fetch-sync`.
