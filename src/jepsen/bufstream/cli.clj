@@ -4,11 +4,13 @@
             [clojure.tools.logging :refer [info warn]]
             [jepsen [checker :as checker]
                     [cli :as cli]
+                    [control :as control]
                     [generator :as gen]
                     [nemesis :as nemesis]
                     [os :as os]
                     [tests :as tests]
                     [util :as util]]
+            [jepsen.control.scp :as scp]
             [jepsen.checker.timeline :as timeline]
             [jepsen.bufstream [core :as core]
                               [db :as db]
@@ -226,6 +228,7 @@
             :nemesis   (:nemesis nemesis nemesis/noop)
             :generator generator
             :logging   {:overrides logging-overrides}
+            :remote    (scp/remote control/ssh)
             })))
 
 (def cli-opts
