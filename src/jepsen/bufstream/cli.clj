@@ -130,6 +130,17 @@
             (assoc res :valid? true)
             res))))))
 
+(defn ignore-some-errors-checker
+  "Wraps the workload checker, ignoring specific errors like :unseen. Takes a
+  set of errors and a checker to wrap."
+  [ignore checker]
+  (reify checker/Checker
+    (check [this test history opts]
+      (let [res (checker/check checker test history opts)]
+        (if (seq (remove ignore (:bad-error-types res)))
+          res
+          (assoc res :valid? true))))))
+
 (defn test-name
   "Takes CLI options and constructs a test name as a string."
   [opts]
@@ -205,11 +216,12 @@
             :plot     {:nemeses (:perf nemesis)}
             :checker  (checker/compose
                         {:perf       (checker/perf)
-                        :clock      (checker/clock-plot)
-                        :stats      (stats-checker)
-                        :exceptions (checker/unhandled-exceptions)
-                        :workload   (:checker workload)
-                        })
+                         :clock      (checker/clock-plot)
+                         :stats      (stats-checker)
+                         :exceptions (checker/unhandled-exceptions)
+                         :workload   (ignore-some-errors-checker
+                                       (:ignore-queue-errors opts)
+                                       (:checker workload))})
             :client    (:client workload)
             :nemesis   (:nemesis nemesis nemesis/noop)
             :generator generator
@@ -270,6 +282,10 @@
    [nil "--[no-]idempotence" "If true, asks producers to enable idempotence. If omitted, uses client defaults."]
 
    [nil "--isolation-level NAME" "What isolation level should we request for consumers? e.g. read_committed"]
+
+   [nil "--ignore-queue-errors TYPES" "A comma-separate list of errors to ignore from the queue workload checker. Helpful for ignoring :unseen, which is a constant problem right now."
+    :default #{}
+    :parse-fn (comp set parse-comma-kws)]
 
    [nil "--max-writes-per-key NUM" "Maximum number of writes to any given key."
     :default  1024
