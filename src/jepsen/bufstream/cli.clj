@@ -261,6 +261,9 @@
     :parse-fn read-string
     :validate [#(and (number? %) (pos? %)) "must be a positive number"]]
 
+   [nil "--debug-watchdog" "If set, logs extra watchdog information, like whether the servers are running once per second."
+    :id :debug-watchdog?]
+
    [nil "--disable-auto-commit" "If set, disables automatic commits via Kafka consumers. If not provided, uses the client default."
     :assoc-fn (fn [m _ _] (assoc m :enable-auto-commit false))]
 

@@ -67,7 +67,10 @@
   (step! [this test node]
     (clj/locking this
       (when @enabled?
-        (when-not (running? test node)
+        (when-not (let [running? (running? test node)]
+                    (when (:debug-watchdog? test)
+                      (info node "is" (if running? "running" "dead")))
+                    running?)
           (let [r (start! test node)]
             (info "Watchdog started:" r))))))
 
