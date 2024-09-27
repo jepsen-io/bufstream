@@ -165,7 +165,7 @@
 
   db/LogFiles
   (log-files [_ test node]
-    (merge (db/log-files tcpdump test node)
+    (merge (when (:tcpdump test) (db/log-files tcpdump test node))
            {log-file "bufstream.log"
             config-file "bufstream.yaml"})))
 
