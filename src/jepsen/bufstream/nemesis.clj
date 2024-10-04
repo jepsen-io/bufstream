@@ -32,7 +32,8 @@
                     :f    :start-partition
                     :value (n/complete-grudge
                              [(role/nodes test role)
-                              (role/nodes test :bufstream)])}))
+                              (util/random-nonempty-subset
+                                (role/nodes test :bufstream))])}))
         gen (->> [(gen/repeat stop)
                   (when (or (:partition faults)
                             (:partition-bufstream-coordination faults))
