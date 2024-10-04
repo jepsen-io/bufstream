@@ -62,6 +62,9 @@
    [:kill]
    [:pause]
    [:clock]
+   ; Just bufstream faults
+   [:kill-bufstream :pause-bufstream :clock-bufstream :partition]
+   ; General chaos
    [:partition :pause :kill :clock]])
 
 (def special-nemeses
