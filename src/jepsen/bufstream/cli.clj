@@ -357,9 +357,6 @@
 
    [nil "--tcpdump" "Dumps traffic to a pcap file."]
 
-   ["-v" "--version STRING" "What version of Datomic should we install?"
-    :default "1.0.7075"]
-
    ["-w" "--workload NAME" "What workload should we run?"
     :parse-fn keyword
     :default  :queue
