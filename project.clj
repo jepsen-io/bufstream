@@ -1,4 +1,4 @@
-(defproject jepsen.bufstream "0.1.0"
+(defproject jepsen.bufstream "0.1.1-SNAPSHOT"
   :description "Jepsen tests for the Bufstream distributed log"
   :url "https://github.com/jepsen-io/bufstream"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
